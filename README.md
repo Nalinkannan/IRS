@@ -9,6 +9,7 @@ photo albums.
 ![System Architecture](assets/image1.png)
 ![System Architecture](assets/image2.png)
 ![System Architecture](assets/image3.png)
+![System Architecture](assets/image4.png)
 
 ---
 ## Code 
