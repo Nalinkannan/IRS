@@ -16,6 +16,5 @@ photo albums.
 IRS is created using Rust 🦀 and Dioxus 🧬 tuned for windows.
 
 ---
->[!info]
 > + rearranging the order of the images and other features will be implemented soon.
 > + web version soon.
