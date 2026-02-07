@@ -464,7 +464,7 @@ fn encode_to_base64(data: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
 
     Ok(result)
 }
-
+// Tried Async thread but failed due to overhead  
 // async fn process_images_threaded(
 //     images: Vec<ImageItem>,
 //     save_folder: PathBuf,
