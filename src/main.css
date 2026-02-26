@@ -209,7 +209,7 @@ button:disabled {
 }
 
 .image-item:active {
-    cursor: grabbing;
+    cursor: default;
 }
 
 .image-item.drag-over {
@@ -231,6 +231,45 @@ button:disabled {
 
 .image-item.drag-over img {
     opacity: 0.7;
+}
+
+.move-buttons {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    display: flex;
+    gap: 6px;
+    z-index: 5;
+}
+
+.move-buttons button {
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+        background 0.12s ease,
+        transform 0.08s ease,
+        opacity 0.12s ease;
+    user-select: none;
+}
+
+.move-buttons button:hover:not(:disabled) {
+    background: rgba(98, 32, 251, 0.12);
+    transform: translateY(-1px);
+}
+
+.move-buttons button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.move-buttons button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
 }
 
 .image-label {
@@ -419,7 +458,7 @@ button:disabled {
     body {
         padding: 10px;
     }
-
+ 
     #controls {
         flex-wrap: wrap;
         gap: 10px;

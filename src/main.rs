@@ -1,29 +1,30 @@
+use dioxus::desktop::tao::window::Icon;
 use dioxus::desktop::{Config, WindowBuilder};
+use dioxus::events::KeyboardEvent;
 use dioxus::prelude::*;
 use image::GenericImageView;
+use keyboard_types::Key;
 use std::path::PathBuf;
-
-// use std::sync::mpsc;
-// use std::sync::Arc;
-// use std::thread;
 
 const MAIN_CSS: Asset = asset!("/src/main.css");
 const THUMBNAIL_SIZE: u32 = 200;
 
-// use dioxus::desktop::tao::window::Icon; 
-
 
 fn main() {
+    let img = image::load_from_memory(include_bytes!("../assets/icon.png"))
+        .expect("Failed to load icon")
+        .into_rgba8();
+    let (width, height) = img.dimensions();
     dioxus::LaunchBuilder::new()
         .with_cfg(
             Config::default()
                 .with_window(
-                    WindowBuilder::new()
-                        .with_title("IRS - IMAGE RENAME SPLIT")
-                        .with_maximized(true)
-                )
+                WindowBuilder::new()
+                    .with_title("IRS - IMAGE RENAME SPLIT")
+                    .with_maximized(true),
+            )
+                .with_icon(Icon::from_rgba(img.to_vec(), width, height).unwrap())
                 .with_menu(None)
-                
         )
         .launch(App);
 }
@@ -376,11 +377,64 @@ fn ImageCard(
         .to_string_lossy()
         .to_string();
 
+    // Handler to move the item left (earlier in the list)
+    let move_left = {
+        let mut images = images.clone();
+        move |_| {
+            let mut imgs = images.read().clone();
+            if let Some(idx) = imgs.iter().position(|img| img.id == item_id) {
+                if idx > 0 {
+                    imgs.swap(idx, idx - 1);
+                    images.set(imgs);
+                }
+            }
+        }
+    };
+
+    // Handler to move the item right (later in the list)
+    let move_right = {
+        let mut images = images.clone();
+        move |_| {
+            let mut imgs = images.read().clone();
+            if let Some(idx) = imgs.iter().position(|img| img.id == item_id) {
+                if idx + 1 < imgs.len() {
+                    imgs.swap(idx, idx + 1);
+                    images.set(imgs);
+                }
+            }
+        }
+    };
+
     rsx! {
         div {
             class: "image-item",
             class: if is_drag_over { "drag-over" } else { "" },
             draggable: true,
+            tabindex: "0",
+            onkeydown: move |evt: KeyboardEvent| {
+                // Use Arrow keys to reorder focused image card
+                match evt.key() {
+                    Key::ArrowLeft => {
+                        let mut imgs = images.read().clone();
+                        if let Some(idx) = imgs.iter().position(|img| img.id == item_id) {
+                            if idx > 0 {
+                                imgs.swap(idx, idx - 1);
+                                images.set(imgs);
+                            }
+                        }
+                    }
+                    Key::ArrowRight => {
+                        let mut imgs = images.read().clone();
+                        if let Some(idx) = imgs.iter().position(|img| img.id == item_id) {
+                            if idx + 1 < imgs.len() {
+                                imgs.swap(idx, idx + 1);
+                                images.set(imgs);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            },
             ondragstart: move |_| {
                 drag_source.set(Some(item_id));
             },
@@ -410,6 +464,44 @@ fn ImageCard(
             ondragleave: move |_| {
                 drag_over_id.set(None);
             },
+
+            // Control row with SVG arrows
+            div {
+                class: "move-buttons",
+                // Left arrow button (SVG)
+                button {
+                    onclick: move_left,
+                    title: "Move left",
+                    aria_label: "Move left",
+                    svg {
+                        xmlns: "http://www.w3.org/2000/svg",
+                        view_box: "0 0 24 24",
+                        width: "14",
+                        height: "14",
+                        fill: "white",
+                        path {
+                            d: "M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"
+                        }
+                    }
+                }
+                // Right arrow button (SVG)
+                button {
+                    onclick: move_right,
+                    title: "Move right",
+                    aria_label: "Move right",
+                    fill: "white",
+                    svg {
+                        xmlns: "http://www.w3.org/2000/svg",
+                        view_box: "0 0 24 24",
+                        width: "14",
+                        height: "14",
+                        path {
+                            d: "M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"
+                        }
+                    }
+                }
+            }
+
             img {
                 src: "data:image/jpeg;base64,{thumbnail}",
                 alt: "Preview",
@@ -464,88 +556,6 @@ fn encode_to_base64(data: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
 
     Ok(result)
 }
-// Tried Async thread but failed due to overhead  
-// async fn process_images_threaded(
-//     images: Vec<ImageItem>,
-//     save_folder: PathBuf,
-//     mut notification: Signal<Option<Notification>>,
-// ) {
-//     let spl_folder = save_folder.join("SPL");
-//     if let Err(_) = std::fs::create_dir_all(&spl_folder) {
-//         notification.set(Some(Notification {
-//             message: "✗ Failed to create output folder".to_string(),
-//             notification_type: NotificationType::Error,
-//             id: std::time::SystemTime::now()
-//                 .duration_since(std::time::UNIX_EPOCH)
-//                 .map(|d| d.as_millis() as u64)
-//                 .unwrap_or(0),
-//         }));
-//         return;
-//     }
-
-//     let (tx, rx) = mpsc::channel();
-//     let images_arc = Arc::new(images);
-//     let spl_folder_arc = Arc::new(spl_folder);
-//     let mut handles = vec![];
-
-//     let chunk_size = 3;
-//     let total_images = images_arc.len();
-//     let mut image_num = 1;
-
-//     for chunk in images_arc.chunks(chunk_size) {
-//         let chunk_clone = chunk.to_vec();
-//         let chunk_len = chunk_clone.len();
-//         let tx = tx.clone();
-//         let spl_folder = Arc::clone(&spl_folder_arc);
-//         let start_num = image_num;
-
-//         let handle = thread::spawn(move || {
-//             for (idx, item) in chunk_clone.iter().enumerate() {
-//                 let current_num = start_num + idx;
-//                 match process_single_image(item, &spl_folder, current_num) {
-//                     Ok(_) => {
-//                         let msg = format!(
-//                             "✓ {}",
-//                             item.path.file_name().unwrap_or_default().to_string_lossy()
-//                         );
-//                         tx.send(msg).ok();
-//                     }
-//                     Err(_) => {
-//                         let msg = format!(
-//                             "✗ {}",
-//                             item.path.file_name().unwrap_or_default().to_string_lossy()
-//                         );
-//                         tx.send(msg).ok();
-//                     }
-//                 }
-//             }
-//         });
-
-//         image_num += chunk_len;
-//         handles.push(handle);
-//     }
-
-//     drop(tx);
-
-//     let _results: Vec<String> = rx.iter().collect();
-
-//     for handle in handles {
-//         handle.join().ok();
-//     }
-
-//     let id = std::time::SystemTime::now()
-//         .duration_since(std::time::UNIX_EPOCH)
-//         .map(|d| d.as_millis() as u64)
-//         .unwrap_or(0);
-//     notification.set(Some(Notification {
-//         message: format!("✓ Completed! Processed {} images", total_images),
-//         notification_type: NotificationType::Success,
-//         id,
-//     }));
-
-//     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-//     notification.set(None);
-// }
 
 fn process_single_image(
     item: &ImageItem,
